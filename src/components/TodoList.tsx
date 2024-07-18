@@ -1,24 +1,92 @@
 import { motion } from "framer-motion";
-import axiosInstance from "../config/axios.config";
 import { userData } from "../userData";
-import { useQuery } from "@tanstack/react-query";
 import useAuthenticatedQuery from "../hooks/useAuthenticatedQuery";
+import Modal from "./ui/Modal";
+import { useState } from "react";
+import axiosInstance from "../config/axios.config";
+import { ITodo } from "../interfaces";
+import Input from "./ui/Input";
+import Textarea from "./ui/Textarea";
+import Button from "./ui/Button";
+import { SubmitHandler, useForm } from "react-hook-form";
+import Skeleton from "./ui/Skeleton";
+import AddTodo from "./AddTodo";
+import ButtonSkeleton from "./ui/ButtonSkeleton";
+
+interface IUpdateForm {
+  title: string;
+  content: string;
+}
 
 const TodoList = () => {
-  // const { data: todos, isLoading } = useQuery({
-  //   queryKey: ["todos"],
-  //   queryFn: async () => {
-  //     const { data } = await axiosInstance.get("/users/me?populate=todos", {
-  //       headers: {
-  //         Authorization: `Bearer  ${userData?.jwt}`,
-  //       },
-  //     });
-  //     return data.todos;
-  //   },
-  // });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<IUpdateForm>();
+  const [queryVersion, setQueryVersion] = useState(1);
+  const [isOpenDelete, setIsOpenDelete] = useState(false);
+  const [isOpenUpdate, setIsOpenUpdate] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [todoToEdit, setTodoToEdit] = useState<ITodo>({
+    id: 0,
+    title: "",
+    content: "",
+  });
+  const closeDeleteModal = () => {
+    setIsOpenDelete(false);
+    setTodoToEdit({ id: 0, title: "", content: "" });
+  };
+  const closeUpdateModal = () => {
+    setTodoToEdit({
+      id: 0,
+      title: "",
+      content: "",
+    });
+    setIsOpenUpdate(false);
+  };
+  const openUpdateModal = (todo: ITodo) => {
+    setTodoToEdit(todo);
+    console.log(todo);
+    setIsOpenUpdate(true);
+  };
+  const openDeleteModal = (todo: ITodo) => {
+    setTodoToEdit(todo);
+    setIsOpenDelete(true);
+  };
+
+  const hanldeOnChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { value, name } = e.target;
+    setTodoToEdit({ ...todoToEdit, [name]: value });
+  };
+
+  const onSubmitUpdate: SubmitHandler<IUpdateForm> = async () => {
+    setIsUpdating(true);
+    try {
+      const { status } = await axiosInstance.put(
+        `/todos/${todoToEdit.id}`,
+        { data: todoToEdit },
+        {
+          headers: {
+            Authorization: `Bearer ${userData?.jwt}`,
+          },
+        }
+      );
+      if (status === 200) {
+        closeUpdateModal();
+        setQueryVersion((prev) => prev + 1);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const { data: todos, isLoading } = useAuthenticatedQuery({
-    queryKey: ["todos"],
+    queryKey: ["todolist", `${queryVersion}`],
     url: "/users/me?populate=todos",
     config: {
       headers: {
@@ -27,54 +95,137 @@ const TodoList = () => {
     },
   });
 
-  if (isLoading)
-    return (
-      <div className="flex gap-5 justify-center items-center mt-14  w-full">
-        <h1>Loading...</h1>
-        <svg
-          aria-hidden="true"
-          className="w-14 h-14 text-gray-200 animate-spin dark:text-gray-100 fill-blue-600"
-          viewBox="0 0 100 101"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-            fill="currentColor"
-          />
-          <path
-            d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-            fill="currentFill"
-          />
-        </svg>
-      </div>
-    );
+  const deleteTodo = async () => {
+    try {
+      const { status } = await axiosInstance.delete(`/todos/${todoToEdit.id}`, {
+        headers: {
+          Authorization: `Bearer  ${userData?.jwt}`,
+        },
+      });
+      if (status === 200) {
+        setQueryVersion((prev) => prev + 1);
+        closeDeleteModal();
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {todos.length > 0 ? (
-        todos.map(({ title }: { title: string }) => {
-          return (
-            <div
-              className="flex items-center justify-between odd:bg-gray-100 px-4 py-3 rounded-md transition-all duration-300 hover:bg-gray-100"
-              key={title}>
-              <p>{title}</p>
-              <div className="flex items-center gap-3">
-                <button className="text-white bg-blue-700 px-2 py-2 rounded-lg">
-                  Update
-                </button>
-                <button className="text-white bg-red-500 px-2 py-2 rounded-lg">
-                  Delete
-                </button>
-              </div>
-            </div>
-          );
-        })
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-center gap-3">
+        {isLoading ? (
+          <ButtonSkeleton />
+        ) : (
+          <AddTodo setQueryVersion={setQueryVersion} />
+        )}
+      </div>
+      {isLoading ? (
+        <Skeleton />
       ) : (
-        <motion.h1
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}>
-          No Todos Yet
-        </motion.h1>
+        <div className="flex flex-col gap-4">
+          {todos.length > 0 ? (
+            todos.map((todo: ITodo) => {
+              return (
+                <div
+                  className="flex items-center justify-between odd:bg-gray-100 px-4 py-3 rounded-md transition-all duration-300 hover:bg-gray-100"
+                  key={todo.title}>
+                  <p>
+                    {todo.id}- {todo.title}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {/* Update Button */}
+                    <button
+                      onClick={() => openUpdateModal(todo)}
+                      className="text-white bg-blue-700 px-2 py-2 rounded-lg">
+                      Update
+                    </button>
+                    {/* Update Modale */}
+                    <Modal
+                      isOpen={isOpenUpdate}
+                      closeModal={closeUpdateModal}
+                      title={"Edit this todo"}>
+                      <form
+                        className="flex flex-col gap-4"
+                        onSubmit={handleSubmit(onSubmitUpdate)}>
+                        <div className="flex flex-col gap-7">
+                          <div className="flex relative w-full mx-auto">
+                            <Input
+                              {...register("title", {
+                                required: "Title is required",
+                              })}
+                              onChange={hanldeOnChange}
+                              value={todoToEdit.title}
+                            />
+                            {errors["title"] && (
+                              <div className="text-red-500 text-[13px] font-semibold absolute -bottom-[22px] right-0">
+                                {errors["title"]?.message}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex relative w-full mx-auto">
+                            <Textarea
+                              {...register("content", {
+                                required: "Content is required",
+                              })}
+                              onChange={hanldeOnChange}
+                              value={todoToEdit.content}
+                            />
+                            {errors["content"] && (
+                              <div className="text-red-500 text-[13px] font-semibold absolute -bottom-[22px] right-0">
+                                {errors["content"]?.message}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Button isLoading={isUpdating}>Update</Button>
+                          <button
+                            type="button"
+                            onClick={closeUpdateModal}
+                            className="text-black font-medium  bg-gray-200  px-3 py-3 rounded-lg transition-all duration-300 hover:bg-gray-300">
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    </Modal>
+                    {/* ** Delete Button */}
+                    <button
+                      onClick={() => openDeleteModal(todo)}
+                      className="text-white bg-red-500 px-2 py-2 rounded-lg">
+                      Delete
+                    </button>
+                    {/* Delete Modale */}
+                    <Modal
+                      isOpen={isOpenDelete}
+                      closeModal={closeDeleteModal}
+                      title="Are you sure you want to remove this todo from your store ?"
+                      description="Deleting this todo will remove it permenantly from your inventory. Any associated data, sales history, and other related information will also be deleted. Please make sure this is the intended action.">
+                      <div className="flex items-center gap-4 mt-5">
+                        <button
+                          onClick={deleteTodo}
+                          className="text-white bg-red-500 px-2 py-2 rounded-lg font-medium">
+                          Yes, delete
+                        </button>
+                        <button
+                          onClick={closeDeleteModal}
+                          className="text-black font-medium  bg-gray-200  px-2 py-2 rounded-lg">
+                          Cancel
+                        </button>
+                      </div>
+                    </Modal>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <motion.h1
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}>
+              No Todos Yet
+            </motion.h1>
+          )}
+        </div>
       )}
     </div>
   );

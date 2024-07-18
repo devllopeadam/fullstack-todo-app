@@ -9,7 +9,7 @@ import axiosInstance from "../config/axios.config";
 import toast from "react-hot-toast";
 import { AxiosError } from "axios";
 import { IErrorResponse } from "../interfaces";
-
+import Cookies from 'js-cookie';
 interface IFormInput {
   identifier: string;
   password: string;
@@ -31,6 +31,7 @@ const Login = () => {
       );
       if (status == 200) {
         localStorage.setItem("loggedInUser", JSON.stringify(resData));
+        Cookies.set('token', resData.jwt);
         toast.success("Registration successfully", {
           position: "bottom-center",
           duration: 1500,

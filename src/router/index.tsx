@@ -12,10 +12,12 @@ import PageNotFound from "../pages/PageNotFound";
 import Login from "../pages/Login";
 import HomePage from "../pages/index";
 import ErrorHandler from "../errors/ErrorHandler";
+import Cookies from "js-cookie";
 
 const storageKey = "loggedInUser";
 const userDataString: string | null = localStorage.getItem(storageKey);
 const userData = userDataString ? JSON.parse(userDataString) : null;
+
 
 const router = createBrowserRouter(
   createRoutesFromElements(
